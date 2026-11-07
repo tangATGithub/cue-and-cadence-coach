@@ -28,3 +28,10 @@ use the editor.
   own key and store it in Secrets.
 - **Secrets.** Lovable manages them. Do not put secret values in the repo.
 <!-- LOVABLE:END -->
+
+## Project rules
+
+- Voice calls run through a persistent WebSocket relay (`src/lib/live-relay.server.ts`, served at `/api/live` by `src/server.ts` in production and `live-vite-plugin.ts` in dev); never replace it with a one-shot SDP endpoint, because closing the Gateway socket hangs up the call.
+- Trainer behaviors that must happen without the user speaking (auto-cues after silence, pause/resume/end voice commands) live in the relay; command phrases are matched in `src/lib/coach-commands.ts` so they stay unit-testable.
+- Detailed form answers come from delegated backend requests that look up `src/lib/exercise-cues.ts`; extend coaching knowledge there rather than bloating the live session instructions.
+- The UI is a single full-screen tap target with spoken (speechSynthesis) error feedback, because users are not expected to read the screen.
