@@ -19,10 +19,11 @@ export function readExerciseSets(value: unknown): ExerciseSets[] {
 }
 
 export function dailyWorkouts(rows: SavedWorkout[]) {
-  const days = new Map<string, { date: string; sessions: number; seconds: number; exercises: ExerciseSets[] }>();
+  const days = new Map<string, { date: string; sessions: number; seconds: number; exercises: ExerciseSets[]; workouts: SavedWorkout[] }>();
   for (const row of rows) {
     const date = new Date(row.completed_at).toLocaleDateString('en-CA');
-    const day = days.get(date) ?? { date, sessions: 0, seconds: 0, exercises: [] };
+    const day = days.get(date) ?? { date, sessions: 0, seconds: 0, exercises: [], workouts: [] };
+    day.workouts.push(row);
     day.sessions++;
     day.seconds += row.duration_seconds;
     const reported = readExerciseSets(row.exercise_sets);

@@ -5,7 +5,7 @@ import { RefreshCw, Volume2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getDeviceCapability } from '@/lib/device-capability';
 import { getWorkouts } from '@/lib/workouts.functions';
-import { dailyWorkouts, spokenWorkoutHistory } from '@/lib/workout-history';
+import { dailyWorkouts, spokenWorkoutHistory, readExerciseSets } from '@/lib/workout-history';
 
 export function WorkoutHistory() {
   const [capability, setCapability] = useState<string>();
@@ -48,6 +48,21 @@ export function WorkoutHistory() {
           <span className="text-right font-semibold text-primary">{entry.completed_sets ?? '—'}</span>
         </div>)}</div>
         {day.exercises.some((entry) => entry.completed_sets === null) && <p className="mt-4 text-sm text-muted-foreground">— Sets not reported</p>}
+        <h3 className="mb-3 mt-8 text-sm font-semibold uppercase text-muted-foreground">Workouts completed this day</h3>
+        <ol className="divide-y divide-border">{day.workouts.map((workout, index) => {
+          const reported = readExerciseSets(workout.exercise_sets);
+          const entries = reported.length ? reported : workout.exercises.map((exercise) => ({ exercise, completed_sets: null }));
+          return <li key={workout.id} className="py-4">
+            <div className="flex flex-wrap justify-between gap-2">
+              <span className="font-semibold">Workout {day.workouts.length - index}</span>
+              <span className="text-sm text-muted-foreground">{new Date(workout.completed_at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })} · {Math.round(workout.duration_seconds / 60)} min</span>
+            </div>
+            <ul className="mt-2 space-y-1">{entries.map((entry) => <li key={entry.exercise} className="flex justify-between gap-4 text-sm">
+              <span className="capitalize">{entry.exercise}</span><span className="text-muted-foreground">{entry.completed_sets === null ? 'Sets not reported' : `${entry.completed_sets} completed sets`}</span>
+            </li>)}</ul>
+            {!entries.length && <p className="mt-2 text-sm text-muted-foreground">Exercises not reported</p>}
+          </li>;
+        })}</ol>
       </article>)}</div>}
   </section>;
 }
