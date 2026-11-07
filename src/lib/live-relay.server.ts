@@ -7,6 +7,7 @@ import { CUE_IDLE_SECONDS, detectCoachCommand } from "./coach-commands";
 import { EXERCISES, findExercise } from "./exercise-cues";
 import { COACH_VOICES, detectVoiceChoice, isWorkoutCompletion, type CoachVoice } from "./workout-journal";
 import { deviceHash, readWorkouts, saveWorkout } from "./workout-journal.server";
+import { spokenWorkoutHistory } from "./workout-history";
 
 export type LiveConfig = {
   baseURL: string;
@@ -24,7 +25,7 @@ const liveSettings = {
 };
 
 const openingInstructions =
-  "Start now in English. Greet the user briefly as their hands-free trainer. Say they can request a male or female coach for their next workout, and that saying end workout saves their session. Ask which exercise they are starting with, then listen.";
+  "Start now in English. Greet the user briefly as their hands-free trainer. Say to report completed sets, for example I completed three sets of squats, and say end workout to save. Ask which exercise they are starting with, then listen.";
 
 export type LiveSocket = {
   readonly readyState: number;
@@ -143,6 +144,7 @@ If they say end the workout, give one short encouraging goodbye.
 The app saves the workout on explicit completion or end, and reports whether the save succeeded. Never claim a save before the app confirms it.
 The coach voice is fixed for this call. A request for a male or female coach sets the next workout's voice; do not claim to change it mid-call.
 Users can ask to hear their workout history. The app supplies verified saved sessions; never invent workout history, reps, weights, or sets.
+After an exercise, ask how many sets they completed. Ask them to report it explicitly as "I completed three sets of squats". Planned sets and coached rep counts never count as completed. Confirm their reported exercise and count. Corrections should restate the completed total with the exercise name. Do not claim to observe physical completion.
 Backchannel policy: Use occasional short encouragement like "good", "nice", "keep it up" without taking over.
 Interruption policy: Stop talking immediately and listen when the user speaks.
 Delegation policy:
@@ -421,7 +423,7 @@ export function bindLiveConnection(
       recentUserText = "";
       const hash = journalHash;
       if (hash) execution.waitUntil(readWorkouts(hash).then((rows) => {
-        const details = rows.slice(0, 3).map((row) => `${row.completed_at.slice(0, 10)}: ${row.exercises.join(", ") || "workout"}, ${Math.round(row.duration_seconds / 60)} minutes`).join("; ");
+        const details = spokenWorkoutHistory(rows);
         sendCoachCommentary(rows.length ? `Read this verified workout history briefly: ${details}` : "Tell the user there are no completed workouts saved on this phone yet.");
       }).catch(() => sendCoachCommentary("Tell the user their workout history could not be loaded.")));
       return;

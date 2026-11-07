@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CoachVoice } from "@/lib/workout-journal";
+import { getDeviceCapability } from "@/lib/device-capability";
 
 export type LiveEvent = {
   type: string;
@@ -306,11 +307,7 @@ function createLiveVoice(options: LiveOptions) {
     state = "starting";
     window.addEventListener("pagehide", stop);
     try {
-      let capability = localStorage.getItem("coach-device-capability");
-      if (!capability || !/^[a-f0-9]{64}$/.test(capability)) {
-        capability = Array.from(crypto.getRandomValues(new Uint8Array(32)), (byte) => byte.toString(16).padStart(2, "0")).join("");
-        localStorage.setItem("coach-device-capability", capability);
-      }
+      const capability = getDeviceCapability();
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true },
       });

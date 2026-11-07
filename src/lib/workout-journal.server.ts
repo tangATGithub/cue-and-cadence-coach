@@ -16,7 +16,7 @@ export async function saveWorkout(input: {
   const { error } = await supabaseAdmin.from("workout_logs").upsert(row, { onConflict: "id", ignoreDuplicates: true });
   if (error) throw new Error("Your workout could not be saved. Please try again.");
   const { data, error: readError } = await supabaseAdmin.from("workout_logs")
-    .select("id, duration_seconds, exercises").eq("id", input.id).eq("device_hash", input.deviceHash).single();
+    .select("id, duration_seconds, exercises, exercise_sets").eq("id", input.id).eq("device_hash", input.deviceHash).single();
   if (readError || !data) throw new Error("Your workout save could not be confirmed.");
   return data;
 }
@@ -24,8 +24,8 @@ export async function saveWorkout(input: {
 export async function readWorkouts(hash: string) {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data, error } = await supabaseAdmin.from("workout_logs")
-    .select("id, completed_at, duration_seconds, exercises, coach_voice")
-    .eq("device_hash", hash).order("completed_at", { ascending: false }).limit(10);
+    .select("id, completed_at, duration_seconds, exercises, coach_voice, exercise_sets")
+    .eq("device_hash", hash).order("completed_at", { ascending: false });
   if (error) throw new Error("Your workout history could not be loaded.");
   return data;
 }
