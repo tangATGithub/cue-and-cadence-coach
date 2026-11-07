@@ -154,7 +154,7 @@ function isListeningSound(text: string) {
   return /^(?:m+hm+|uhhuh)[.,!]*$/.test(normalized);
 }
 
-async function answerQuestion(
+export async function answerQuestion(
   messages: ModelMessage[],
   config: LiveConfig,
   correlation: { runID: string; sessionID: string | undefined; delegationID: string },
