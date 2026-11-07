@@ -18,7 +18,7 @@ describe("workout requirements", () => {
       completedAt: 120000, voice: "male", userWords: "I am doing squats, three sets of ten" });
     expect(row.duration_seconds).toBe(120);
     expect(row.completed_at).toBe("1970-01-01T00:02:00.000Z");
-    expect(row.exercises).toContain("Squat");
+    expect(row.exercises).toContain("squat");
     expect(row.reported_details).toContain("three sets of ten");
   });
 });

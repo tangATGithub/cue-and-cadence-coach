@@ -3,6 +3,7 @@ import type { CoachVoice } from "@/lib/workout-journal";
 
 export type LiveEvent = {
   type: string;
+  voice?: CoachVoice;
   reason?: string;
   error?: { message?: string };
   usage?: { seconds?: number };
