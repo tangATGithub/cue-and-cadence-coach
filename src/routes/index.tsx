@@ -8,12 +8,12 @@ export const Route = createFileRoute("/")({
       { title: "Coach — Hands-free voice personal trainer" },
       {
         name: "description",
-        content: "Tap once and talk. Coach cues your breathing, posture, core and where to feel the burn.",
+        content: "A phone-friendly voice personal trainer with male and female coaches, hands-free exercise cues and completed workout logging.",
       },
       { property: "og:title", content: "Coach — Hands-free voice personal trainer" },
       {
         property: "og:description",
-        content: "Tap once and talk. Coach cues your breathing, posture, core and where to feel the burn.",
+        content: "A phone-friendly voice personal trainer with male and female coaches, hands-free exercise cues and completed workout logging.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
