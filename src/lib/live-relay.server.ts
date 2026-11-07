@@ -3,6 +3,9 @@ import { stepCountIs, streamText, tool, type ModelMessage } from "ai";
 import process from "node:process";
 import { z } from "zod";
 
+import { CUE_IDLE_SECONDS, detectCoachCommand } from "./coach-commands";
+import { EXERCISES, findExercise } from "./exercise-cues";
+
 export type LiveConfig = {
   baseURL: string;
   key: string;
@@ -12,7 +15,14 @@ export type LiveConfig = {
 };
 
 // Fill from co-loaded knowledge: the gateway URL, the Live model and the resolved chat model.
-const liveSettings = { baseURL: "", liveModel: "", backendModel: "" };
+const liveSettings = {
+  baseURL: "https://ai.gateway.lovable.dev",
+  liveModel: "openai/gpt-live-1",
+  backendModel: "openai/gpt-6-astra",
+};
+
+const openingInstructions =
+  "Start now in English. In one short, upbeat sentence greet the user as their hands-free personal trainer, then ask what workout or body area they are focusing on today. Then listen.";
 
 export type LiveSocket = {
   readonly readyState: number;
@@ -50,6 +60,7 @@ type ProviderEvent = {
 export function getLiveConfig(): LiveConfig {
   const config: LiveConfig = {
     ...liveSettings,
+    openingInstructions,
     key: process.env["LOVABLE_API_KEY"] ?? "",
   };
   if ([config.baseURL, config.key, config.liveModel, config.backendModel].some((value) => !value)) {
@@ -111,35 +122,32 @@ export function handleLiveRequest(request: Request): Response {
   return new Response(null, response);
 }
 
-const conversationInstructions = `You are Mira, a calm learning companion.
-Speak naturally in brief replies. Ask a focused question when details are unclear.
-Backchannel policy: Use moderate listening sounds without taking over.
-Interruption policy: Stop your answer and listen when the user interrupts.
+const conversationInstructions = `You are Coach, an energetic, warm personal trainer who works entirely by voice.
+The user cannot see or touch a screen while training. Never refer to anything visual, a screen, or buttons.
+Speak English in short, punchy sentences, like a trainer standing next to them. One idea at a time.
+When the user tells you their workout or focus, confirm it in a few words and start coaching right away:
+cue the breathing rhythm (when to breathe in and out), where they should feel the work or burn,
+core bracing, posture and alignment, and the details people forget. Count reps or seconds when useful.
+Rotate cues so you are not repetitive. Answer their questions briefly, then get back to coaching.
+When they rest, give a recovery breathing cue and ask when they're ready for the next set.
+Safety: if they mention sharp pain, joint pain, dizziness, chest pain, or trouble breathing, tell them to stop and rest,
+and suggest seeing a professional if it continues. Never diagnose.
+If they say pause or ask you to be quiet, acknowledge in three words or fewer and stay quiet until they talk again.
+If they say end the workout, give one short encouraging goodbye.
+Backchannel policy: Use occasional short encouragement like "good", "nice", "keep it up" without taking over.
+Interruption policy: Stop talking immediately and listen when the user speaks.
 Delegation policy:
-Backend tools: Reason through questions and plan study sessions across days.
-Delegate to the backend when: The user wants a study schedule or careful reasoning,
-or a correction changes a question already being worked on.
-Do not delegate to the backend when: Greeting, clarifying a question, or repeating
-a still-current answer. Wait for the backend result before presenting its answer.`;
+Backend tools: A coaching library with precise breathing, muscle, core, posture, and common-mistake cues per exercise, plus careful reasoning for form questions and building a workout.
+Delegate to the backend when: The user asks a detailed technique or form question, asks what muscles an exercise works,
+asks for modifications for an injury or limitation, or asks you to build a workout routine.
+Do not delegate to the backend when: Greeting, giving routine in-set cues, counting, encouraging, confirming the workout,
+or repeating a still-current answer. Wait for the backend result before presenting its answer.`;
 
-const studyScheduleInput = z
+const exerciseCuesInput = z
   .object({
-    total_minutes: z.number().int().min(1).max(10_080),
-    days: z.number().int().min(1).max(30),
+    exercise: z.string().min(1).max(80),
   })
   .strict();
-
-function planStudySchedule(args: z.infer<typeof studyScheduleInput>) {
-  const daily = Math.floor(args.total_minutes / args.days);
-  return {
-    total_minutes: args.total_minutes,
-    days: args.days,
-    sessions: Array.from({ length: args.days }, (_, index) => ({
-      day: index + 1,
-      minutes: daily + (index < args.total_minutes % args.days ? 1 : 0),
-    })),
-  };
-}
 
 function isListeningSound(text: string) {
   const normalized = text.toLowerCase().replace(/[\s\p{Pd}]/gu, "");
@@ -152,7 +160,6 @@ async function answerQuestion(
   correlation: { runID: string; sessionID: string | undefined; delegationID: string },
   signal: AbortSignal,
   consumeInput: () => void,
-  onPlan: (plan: ReturnType<typeof planStudySchedule>) => void,
 ) {
   signal.throwIfAborted();
   const provider = createOpenAI({
@@ -200,23 +207,25 @@ async function answerQuestion(
       },
     },
     system:
-      "Help a spoken learning companion answer the latest user question. " +
+      "You support a voice-only personal trainer. Answer the user's latest fitness question so the trainer can say it aloud while the user is mid-workout. " +
       "Transcripts may be incomplete or corrected. Use the latest correction. " +
       "Continue from completed tool results; do not repeat completed actions. " +
-      "Return verified facts and useful next steps in at most 150 words. " +
-      "To display a study schedule for the current request, call plan_study_schedule with its total minutes and days. " +
-      "Ask for missing details instead of guessing. The tool only calculates a draft plan; " +
-      "it does not save calendar events. You have no other tools.",
+      "For any named exercise, call get_exercise_cues first and build on its cues. " +
+      "Write plain spoken sentences only: no lists, markdown, symbols, or headings. At most 90 words. " +
+      "Cover what matters: breathing, where to feel it, core, posture, and the mistake to avoid. " +
+      "For pain or injury, give safe modifications and advise stopping if pain is sharp; never diagnose. " +
+      "Ask for missing details instead of guessing. You have no other tools.",
     messages,
     tools: {
-      plan_study_schedule: tool({
-        description: "Distribute a total study time evenly across days and return a draft schedule.",
-        inputSchema: studyScheduleInput,
-        execute: async (args) => {
+      get_exercise_cues: tool({
+        description:
+          "Look up curated coaching cues (breathing, where to feel it, core, posture, common mistakes) for an exercise.",
+        inputSchema: exerciseCuesInput,
+        execute: async ({ exercise }) => {
           signal.throwIfAborted();
-          const plan = planStudySchedule(args);
-          onPlan(plan);
-          return plan;
+          const cues = findExercise(exercise);
+          if (cues) return { found: true, cues };
+          return { found: false, known_exercises: EXERCISES.map((e) => e.name) };
         },
       }),
     },
