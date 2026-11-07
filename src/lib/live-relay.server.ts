@@ -292,10 +292,15 @@ export function bindLiveConnection(
   let finished = false;
   let revision = 0;
   let task: AbortController | undefined;
-  const pendingDelegations: Array<{
-    event: ProviderEvent;
-    plan?: ReturnType<typeof planStudySchedule>;
-  }> = [];
+  const pendingDelegations: Array<{ event: ProviderEvent }> = [];
+  // Trainer pacing: offer a cue on its own after a stretch of silence.
+  let coachingActive = false;
+  let coachingPaused = false;
+  let endingRequested = false;
+  let lastActivity = Date.now();
+  let recentUserText = "";
+  let cueTimer: ReturnType<typeof setInterval> | undefined;
+  let endTimer: ReturnType<typeof setTimeout> | undefined;
   let completedDelegation: (typeof pendingDelegations)[number] | undefined;
   const backendMessages: ModelMessage[] = [];
   let transcriptCursor = 0;
@@ -363,6 +368,52 @@ export function bindLiveConnection(
     );
   }
 
+  function sendCoachCommentary(content: string) {
+    if (closing || gateway?.readyState !== 1) return;
+    try {
+      gateway.send(
+        JSON.stringify({
+          type: "session.commentary.append",
+          event_id: crypto.randomUUID(),
+          delegation_id: null,
+          content,
+        }),
+      );
+    } catch {
+      stop();
+    }
+  }
+
+  function checkCue() {
+    if (closing || endingRequested || !coachingActive || coachingPaused) return;
+    if (task || pendingDelegations.length || greetingCommand) return;
+    if (Date.now() - lastActivity < CUE_IDLE_SECONDS * 1000) return;
+    lastActivity = Date.now();
+    sendCoachCommentary(
+      "Coaching cue now: in one or two short sentences, give the next most useful cue for what the user is doing: breathing rhythm, core, posture, or where they should feel it. If they seem to be resting, give a recovery breathing cue or ask if they're ready for the next set. Do not repeat your last cue.",
+    );
+  }
+
+  function handleUserWords(delta: string) {
+    coachingActive = true;
+    recentUserText = (recentUserText + delta).slice(-160);
+    const command = detectCoachCommand(recentUserText);
+    if (!command) return;
+    recentUserText = "";
+    if (command === "pause") {
+      coachingPaused = true;
+      emit({ type: "app.coach.paused" });
+    } else if (command === "resume") {
+      coachingPaused = false;
+      emit({ type: "app.coach.resumed" });
+    } else if (command === "end" && !endingRequested) {
+      endingRequested = true;
+      emit({ type: "app.coach.ending" });
+      sendCoachCommentary("The user asked to end the session. Say one short encouraging goodbye now. Do not ask a question.");
+      endTimer = setTimeout(stop, 8000);
+    }
+  }
+
   function discardPendingWork() {
     pendingDelegations.length = 0;
     completedDelegation = undefined;
@@ -377,6 +428,8 @@ export function bindLiveConnection(
     clearTimeout(startupTimer);
     clearTimeout(closeTimer);
     clearTimeout(restartTimer);
+    clearInterval(cueTimer);
+    clearTimeout(endTimer);
     clearGreeting();
     discardPendingWork();
     setupAbort.abort();
@@ -391,6 +444,8 @@ export function bindLiveConnection(
     discardPendingWork();
     clearTimeout(startupTimer);
     clearTimeout(startTimer);
+    clearInterval(cueTimer);
+    clearTimeout(endTimer);
     clearGreeting();
     if (gateway?.readyState === 1) {
       execution.waitUntil(
@@ -415,7 +470,7 @@ export function bindLiveConnection(
     restartTimer = setTimeout(() => void runDelegation(), 300);
   }
 
-  function deliverResult(delegationID: string, answer: string, plan?: ReturnType<typeof planStudySchedule>) {
+  function deliverResult(delegationID: string, answer: string) {
     if (closing) return;
     if (gateway?.readyState !== 1) return stop();
     try {
@@ -429,7 +484,7 @@ export function bindLiveConnection(
           }),
         );
       }
-      if (plan) emit({ type: "app.study_schedule.plan", delegation_id: delegationID, plan });
+      lastActivity = Date.now();
       completedDelegation = pendingDelegations.shift();
     } catch {
       stop();
@@ -453,18 +508,14 @@ export function bindLiveConnection(
         controller.signal,
         () => {
           const updates = transcripts.slice(transcriptCursor);
-          if (updates.some(({ role, listeningSound }) => role === "user" && !listeningSound)) delete pending.plan;
           backendMessages.push(...updates.map(({ role, text }) => ({ role, content: text })));
           transcriptCursor = transcripts.length;
           taskRevision = revision;
         },
-        (plan) => {
-          pending.plan = plan;
-        },
       );
       if (closing || controller.signal.aborted) return;
       if (taskRevision !== revision) return;
-      deliverResult(id, answer.trim(), pending.plan);
+      deliverResult(id, answer.trim());
     } catch {
       if (closing || controller.signal.aborted) return;
       backendMessages.push({
@@ -499,6 +550,8 @@ export function bindLiveConnection(
       if (event.type === "gateway.session.created") {
         sessionID = event.session?.id;
         clearTimeout(startupTimer);
+        clearInterval(cueTimer);
+        cueTimer = setInterval(checkCue, 2000);
         requestGreeting();
       }
       if (
@@ -527,6 +580,8 @@ export function bindLiveConnection(
       if (event.type === "session.input_transcript.delta" || event.type === "session.output_transcript.delta") {
         const role = event.type === "session.input_transcript.delta" ? "user" : "assistant";
         if (!event.delta?.trim()) return;
+        lastActivity = Date.now();
+        if (role === "user") handleUserWords(event.delta);
         const listeningSound = role === "user" && Boolean(task) && isListeningSound(event.delta);
         transcripts.push({
           role,
