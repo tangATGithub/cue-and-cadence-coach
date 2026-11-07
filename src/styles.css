@@ -142,6 +142,15 @@
 }
 
 @layer components {
+  .workout-meter {
+    height: 1rem;
+    appearance: none;
+    background: var(--secondary);
+    border-radius: 3px;
+  }
+  .workout-meter::-webkit-meter-bar { background: var(--secondary); border: 0; border-radius: 3px; }
+  .workout-meter::-webkit-meter-optimum-value { background: var(--primary); border-radius: 3px; }
+  .workout-meter::-moz-meter-bar { background: var(--primary); border-radius: 3px; }
   .coach-court {
     background: var(--gradient-court);
     touch-action: manipulation;

@@ -1,7 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { buildWorkoutLog, COACH_VOICES, detectVoiceChoice, isWorkoutCompletion } from "./workout-journal";
+import { buildWorkoutLog, COACH_VOICES, detectVoiceChoice, isWorkoutCompletion, extractCompletedSets } from "./workout-journal";
 
 describe("workout requirements", () => {
+  it('saves completed sets separately for each exercise', () => {
+    expect(extractCompletedSets('I completed three sets of squats. I completed two sets of push-ups. End workout.')).toEqual([
+      { exercise: 'squat', completed_sets: 3 }, { exercise: 'push-up', completed_sets: 2 },
+    ]);
+  });
+  it('does not count planned sets as completed', () => {
+    expect(extractCompletedSets('I will do three sets of squats.')).toEqual([{ exercise: 'squat', completed_sets: null }]);
+  });
+  it('counts individual reports and replaces the total on correction', () => {
+    expect(extractCompletedSets('Squats. Set done. Set done. Actually I completed three sets of squats.'))
+      .toEqual([{ exercise: 'squat', completed_sets: 3 }]);
+  });
+  it('does not mistake side planks for planks or split squats for squats', () => {
+    expect(extractCompletedSets('I completed two sets of side planks. I completed three sets of split squat.'))
+      .toEqual([{ exercise: 'side plank', completed_sets: 2 }, { exercise: 'lunge', completed_sets: 3 }]);
+  });
   it("offers distinct male and female voices", () => {
     expect(COACH_VOICES.male).toBe("meridian");
     expect(COACH_VOICES.female).toBe("gleam");

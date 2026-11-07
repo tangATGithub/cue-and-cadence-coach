@@ -8,6 +8,13 @@
       "when": 1794087032990,
       "tag": "0000_create_private_workout_logs",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1794088361201,
+      "tag": "0001_add_completed_exercise_sets",
+      "breakpoints": true
     }
   ]
 }
