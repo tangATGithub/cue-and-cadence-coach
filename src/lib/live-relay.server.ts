@@ -441,6 +441,7 @@ export function bindLiveConnection(
   function completeWorkout(closeImmediately = false) {
     if (endingRequested || closing) return;
     endingRequested = true;
+    discardPendingWork();
     emit({ type: "app.coach.ending" });
     const hash = journalHash;
     const startedAt = workoutStartedAt;
