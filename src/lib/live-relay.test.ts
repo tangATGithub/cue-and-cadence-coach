@@ -58,6 +58,22 @@ describe("workout completion relay", () => {
     await vi.advanceTimersByTimeAsync(0);
     expect(saveWorkout).toHaveBeenCalledTimes(1);
   });
+  it("keeps coaching after all exercise sets finish until the workout explicitly ends", async () => {
+    const { browser, gateway } = await setup("female");
+    gateway.receive({ type: "session.input_transcript.delta", delta: "I'm working legs. Squats, targeting three sets. " });
+    gateway.receive({ type: "session.input_transcript.delta", delta: "I completed three sets of squats. I'm done. " });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(saveWorkout).not.toHaveBeenCalled();
+    expect(browser.sent.some((event) => event['type'] === 'app.coach.ending')).toBe(false);
+    gateway.receive({ type: "session.input_transcript.delta", delta: "Next, lunges, targeting two sets. I completed one set of lunges. End workout." });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(saveWorkout).toHaveBeenCalledTimes(1);
+    const input = vi.mocked(saveWorkout).mock.calls[0]?.[0];
+    if (!input) throw new Error("Workout must be saved");
+    expect(buildWorkoutLog(input).exercise_sets).toEqual([
+      { exercise: "squat", completed_sets: 3 }, { exercise: "lunge", completed_sets: 1 },
+    ]);
+  });
   it("does not log connection loss as a completed workout", async () => {
     const { browser, gateway } = await setup("female");
     gateway.receive({ type: "session.input_transcript.delta", delta: "I'm doing squats." });

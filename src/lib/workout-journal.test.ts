@@ -39,8 +39,13 @@ describe("workout requirements", () => {
   });
   it("recognizes completion without mistaking an exercise question", () => {
     expect(isWorkoutCompletion("my workout is completed")).toBe(true);
-    expect(isWorkoutCompletion("I'm done")).toBe(true);
+    expect(isWorkoutCompletion("I'm done with my workout")).toBe(true);
     expect(isWorkoutCompletion("how should I do squats?")).toBe(false);
+  });
+  it("does not end a workout on ambiguous, set, or exercise completion", () => {
+    expect(isWorkoutCompletion("I'm done")).toBe(false);
+    expect(isWorkoutCompletion("I'm done with this set")).toBe(false);
+    expect(isWorkoutCompletion("I'm done with all three sets of squats")).toBe(false);
   });
   it("logs date, duration and reported exercise on completion", () => {
     const row = buildWorkoutLog({ id: "one", deviceHash: "private", startedAt: 0,
