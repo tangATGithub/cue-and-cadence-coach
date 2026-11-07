@@ -38,3 +38,4 @@ use the editor.
 - Optional pre-call voice selectors supplement the full-screen start target; spoken voice changes apply to the next session because Live fixes the voice at startup.
 - Workout journals use a cryptographically random device capability, SHA-256 scoped server access, and service-role-only tables to keep no-login phone histories private; never log failed or disconnected calls as completed workouts.
 - Persist explicit completion in the relay under the call's stable ID and verify readback before announcing success; transport cleanup must never imply completion.
+- Visible history at /history shares the call's device capability; saved exercise sets count only explicit user completion reports, never planned sets, and daily totals preserve unknown counts.
