@@ -1,0 +1,3 @@
+- [ ] Add male/female coach selection and spoken preference changes.
+- [ ] Save completed workouts privately and allow spoken history recall.
+- [ ] Verify phone layout, workout rules, storage and voice startup.
