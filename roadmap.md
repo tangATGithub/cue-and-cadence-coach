@@ -4,5 +4,6 @@
 - [x] Coach asks which exercise you start with and confirms it before cueing.
 - [x] Test phone flow: voice choice, ending a workout, saving its log.
 - [x] Add completed sets per exercise, daily workout chart, and durable spoken/visible history.
+- [ ] Verify exact-once exercise/set saves and chart readback after reload; fix compound completion reports.
 - [ ] Set up lyworkoutbuddy.com; unregistered, purchase unavailable to requester, requires workspace admin purchase.
 - [ ] Verify audible conversation on a phone and published website; blocked by sandbox audio/network setup.

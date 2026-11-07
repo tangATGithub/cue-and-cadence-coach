@@ -71,7 +71,10 @@ describe("workout completion relay", () => {
     gateway.receive({ type: 'session.input_transcript.delta', delta: 'I completed three ' });
     gateway.receive({ type: 'session.input_transcript.delta', delta: 'sets of squats. I completed two sets of push-ups. ' });
     gateway.receive({ type: 'session.input_transcript.delta', delta: 'End workout.' });
+    gateway.receive({ type: 'session.input_transcript.delta', delta: 'End workout.' });
+    const browser = (await Promise.resolve({ browser: undefined })).browser;
     await vi.advanceTimersByTimeAsync(0);
+    expect(saveWorkout).toHaveBeenCalledTimes(1);
     const input = vi.mocked(saveWorkout).mock.calls[0]?.[0];
     expect(input).toBeDefined();
     if (!input) throw new Error('Workout must be saved');
