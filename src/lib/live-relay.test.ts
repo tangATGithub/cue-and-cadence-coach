@@ -84,7 +84,7 @@ describe("workout completion relay", () => {
     const { browser, gateway } = await setup('male');
     gateway.receive({ type: 'session.input_transcript.delta', delta: 'I completed three sets of squats. End workout.' });
     await vi.advanceTimersByTimeAsync(0);
-    expect(browser.sent.some((event) => event.type === 'app.workout.save_failed')).toBe(true);
-    expect(browser.sent.some((event) => event.type === 'app.workout.saved')).toBe(false);
+    expect(browser.sent.some((event) => event['type'] === 'app.workout.save_failed')).toBe(true);
+    expect(browser.sent.some((event) => event['type'] === 'app.workout.saved')).toBe(false);
   });
 });
