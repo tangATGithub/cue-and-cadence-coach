@@ -6,7 +6,7 @@ import { WorkoutHistory } from '@/components/WorkoutHistory';
 export const Route = createFileRoute('/history')({
   head: () => ({ meta: [
     { title: 'Workout history — Coach' },
-    { name: 'description', content: 'Your saved workouts, exercise chart and completed sets by day, with spoken playback.' },
+    { name: 'description', content: 'Your daily exercise chart, completed sets and individual saved workouts.' },
     { property: 'og:title', content: 'Workout history — Coach' },
     { property: 'og:description', content: 'Your private daily training record with exercises and completed sets.' },
     { property: 'og:type', content: 'website' },

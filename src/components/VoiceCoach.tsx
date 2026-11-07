@@ -4,7 +4,7 @@ import { useLiveVoice, type LiveEvent } from "@/hooks/use-live-voice";
 import { Button } from "@/components/ui/button";
 import type { CoachVoice } from "@/lib/workout-journal";
 import { Link } from "@tanstack/react-router";
-import { ChartNoAxesColumn } from "lucide-react";
+import { Dumbbell } from "lucide-react";
 
 const HOLD_TO_END_MS = 1200;
 
@@ -221,7 +221,7 @@ export function VoiceCoach() {
       <audio ref={voice.audioRef} controls className="sr-only" />
 
       {canStart && (
-        <div className="absolute inset-x-0 top-6 z-10 flex flex-wrap justify-center gap-2 px-4" role="group" aria-label="Coach voice">
+        <div className="absolute left-4 top-6 z-10 flex justify-center gap-2 sm:inset-x-20" role="group" aria-label="Coach voice">
           {(["female", "male"] as const).map((choice) => (
             <Button key={choice} variant={coachVoice === choice ? "default" : "secondary"}
               aria-pressed={coachVoice === choice} onClick={() => {
@@ -230,9 +230,11 @@ export function VoiceCoach() {
                 speak(`${choice} coach selected.`);
               }} className="min-h-11 capitalize">{choice} coach</Button>
           ))}
-          <Button asChild variant="outline" className="min-h-11"><Link to="/history"><ChartNoAxesColumn />Workout log</Link></Button>
         </div>
       )}
+      {canStart && <Button asChild variant="ghost" size="icon" className="absolute right-4 top-6 z-20 size-11 sm:right-6">
+        <Link to="/history" aria-label="Workout log" title="Workout log"><Dumbbell aria-hidden className="size-6" /></Link>
+      </Button>}
 
       <Button variant="ghost"
         type="button"
