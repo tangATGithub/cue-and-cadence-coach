@@ -59,7 +59,7 @@ export function detectVoiceChoice(text: string): CoachVoice | null {
 }
 
 export function isWorkoutCompletion(text: string) {
-  return /\b(?:workout|training|session)\s+(?:is\s+)?(?:complete|completed|finished|done)\b|\b(?:i'?m|we'?re)\s+done\b/i.test(text);
+  return /\b(?:workout|training|session)\s+(?:is\s+)?(?:complete|completed|finished|done)\b|\b(?:i'?m|we'?re)\s+done\s+(?:with\s+)?(?:the\s+|my\s+|our\s+)?(?:workout|training|session)\b/i.test(text);
 }
 
 export function buildWorkoutLog(input: {

@@ -7,5 +7,6 @@
 - [x] Verify exact-once exercise/set saves against real storage and chart readback after reload; fix compound completion reports.
 - [x] Add set/next-exercise questions, individual completed workouts by day, and far-right dumbbell history icon.
 - [x] Remove Read aloud from the logged workouts page while keeping in-call spoken history.
+- [x] Track body-part focus, request each exercise's set target, and wait for all sets before asking for the next exercise; ambiguous "I'm done" no longer ends the call (24 tests passed).
 - [ ] Set up lyworkoutbuddy.com; unregistered, purchase unavailable to requester, requires workspace admin purchase.
 - [ ] Verify audible conversation on a phone and published website; blocked by sandbox audio/network setup.
