@@ -72,7 +72,9 @@ export function VoiceCoach() {
 
   // Speak errors aloud — the user isn't looking at the screen.
   useEffect(() => {
-    if (voice.error) speak(spokenError(voice.error));
+    if (!voice.error) return;
+    console.warn("Coach voice error:", voice.error);
+    speak(spokenError(voice.error));
   }, [voice.error]);
 
   // Keep the phone awake during a workout so the call isn't suspended.
