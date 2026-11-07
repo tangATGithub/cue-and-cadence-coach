@@ -6,10 +6,10 @@ describe('daily workout history', () => {
   it('adds completed sets from multiple workouts on the same day', () => {
     const days = dailyWorkouts([row, { ...row, id: 'two', exercise_sets: [{ exercise: 'squat', completed_sets: 2 }] }]);
     expect(days).toHaveLength(1);
-    expect(days[0].exercises).toEqual([{ exercise: 'squat', completed_sets: 5 }]);
+    expect(days[0]?.exercises).toEqual([{ exercise: 'squat', completed_sets: 5 }]);
     expect(spokenWorkoutHistory([row])).toContain('squat, 3 completed sets');
   });
   it('keeps old or unreported totals unknown rather than inventing sets', () => {
-    expect(dailyWorkouts([{ ...row, exercise_sets: [] }])[0].exercises[0].completed_sets).toBeNull();
+    expect(dailyWorkouts([{ ...row, exercise_sets: [] }])[0]?.exercises[0]?.completed_sets).toBeNull();
   });
 });

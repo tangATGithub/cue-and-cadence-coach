@@ -35,7 +35,8 @@ export function extractCompletedSets(text: string): ExerciseSets[] {
       ?? clause.match(new RegExp(`\\b${number}\\s+sets?\\b[^.!?]*\\b(?:completed|finished|done)\\b`));
     const entry = entries.get(current);
     if (!entry) continue;
-    if (total) entry.completed_sets = Number.isNaN(Number(total[1])) ? numbers[total[1]] ?? null : Number(total[1]);
+    const reported = total?.[1];
+    if (reported !== undefined) entry.completed_sets = Number.isNaN(Number(reported)) ? numbers[reported] ?? null : Number(reported);
     else if (/\b(?:set (?:is )?(?:done|complete|completed|finished)|(?:completed|finished) (?:a|another|the) set)\b/.test(clause)) {
       entry.completed_sets = (entry.completed_sets ?? 0) + 1;
     }
