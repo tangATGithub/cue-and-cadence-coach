@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { CoachVoice } from "@/lib/workout-journal";
 
 export type LiveEvent = {
   type: string;
+  voice?: CoachVoice;
   reason?: string;
   error?: { message?: string };
   usage?: { seconds?: number };
@@ -31,6 +33,7 @@ const initialState: LiveState = {
 export function useLiveVoice(
   options: {
     url?: string;
+    voice?: CoachVoice;
     onEvent?: (event: LiveEvent) => void | Promise<void>;
   } = {},
 ) {
@@ -72,6 +75,7 @@ export function useLiveVoice(
     const voice = createLiveVoice({
       url: endpoint.href,
       audio,
+      voice: latest.current.voice ?? "female",
       onEvent(event) {
         if (!mounted.current || controller.current !== voice) return;
         if (event.type === "app.connected") {
@@ -106,8 +110,8 @@ export function useLiveVoice(
     void voice.start();
   }, []);
 
-  const stop = useCallback(() => {
-    controller.current?.stop();
+  const stop = useCallback((completed = false) => {
+    controller.current?.stop(completed);
   }, []);
   const setMuted = useCallback((muted: boolean) => {
     if (controller.current?.setMuted(muted)) setCall((previous) => ({ ...previous, muted }));
@@ -122,6 +126,7 @@ export function useLiveVoice(
 type LiveOptions = {
   url: string;
   audio: HTMLAudioElement;
+  voice: CoachVoice;
   onEvent: (event: LiveEvent) => void;
 };
 
@@ -171,11 +176,11 @@ function createLiveVoice(options: LiveOptions) {
     options.onEvent({ type: "app.closed", finalized });
   }
 
-  function stop() {
+  function stop(completed: unknown = false) {
     if (state === "stopping" || state === "closed") return;
     state = "stopping";
     try {
-      send({ type: "session.close" });
+      send({ type: "session.close", completed: completed === true });
     } catch {
       return release();
     }
@@ -301,6 +306,11 @@ function createLiveVoice(options: LiveOptions) {
     state = "starting";
     window.addEventListener("pagehide", stop);
     try {
+      let capability = localStorage.getItem("coach-device-capability");
+      if (!capability || !/^[a-f0-9]{64}$/.test(capability)) {
+        capability = Array.from(crypto.getRandomValues(new Uint8Array(32)), (byte) => byte.toString(16).padStart(2, "0")).join("");
+        localStorage.setItem("coach-device-capability", capability);
+      }
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true },
       });
@@ -351,7 +361,7 @@ function createLiveVoice(options: LiveOptions) {
       deadline = setTimeout(() => fail("Voice session did not start"), 50_000);
       socket.onopen = () => {
         if (!starting()) return release();
-        send({ type: "app.start", sdp });
+        send({ type: "app.start", sdp, voice: options.voice, capability });
       };
       socket.onmessage = ({ data }) => {
         try {

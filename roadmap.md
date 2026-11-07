@@ -1,0 +1,4 @@
+- [x] Add male/female coach selection and spoken preference changes.
+- [x] Save completed workouts privately and allow spoken history recall.
+- [x] Verify phone layout, workout rules, real Cloud storage and both voice startup settings.
+- [ ] Verify audible conversation on a phone and published website; blocked by sandbox microphone/network setup and unpublished site.

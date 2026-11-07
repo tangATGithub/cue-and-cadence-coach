@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useLiveVoice, type LiveEvent } from "@/hooks/use-live-voice";
+import { Button } from "@/components/ui/button";
+import type { CoachVoice } from "@/lib/workout-journal";
 
 const HOLD_TO_END_MS = 1200;
 
@@ -56,6 +58,8 @@ function spokenError(message: string) {
 export function VoiceCoach() {
   const [paused, setPaused] = useState(false);
   const [holding, setHolding] = useState(false);
+  const [coachVoice, setCoachVoice] = useState<CoachVoice>("female");
+  const [workoutSaved, setWorkoutSaved] = useState(false);
   const holdTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const holdFired = useRef(false);
   const wakeLock = useRef<WakeLockLike | null>(null);
@@ -63,10 +67,23 @@ export function VoiceCoach() {
   const onEvent = useCallback((event: LiveEvent) => {
     if (event.type === "app.coach.paused") setPaused(true);
     if (event.type === "app.coach.resumed") setPaused(false);
-    if (event.type === "app.connected") setPaused(false);
+    if (event.type === "app.connected") { setPaused(false); setWorkoutSaved(false); }
+    if (event.type === "app.coach.voice.selected" && (event.voice === "male" || event.voice === "female")) {
+      setCoachVoice(event.voice);
+      localStorage.setItem("coach-voice", event.voice);
+    }
+    if (event.type === "app.workout.saved") {
+      setWorkoutSaved(true);
+      speak("Your workout is logged. Great work.");
+    }
+    if (event.type === "app.workout.save_failed") speak(event.error?.message ?? "Your workout could not be saved.");
   }, []);
 
-  const voice = useLiveVoice({ onEvent });
+  const voice = useLiveVoice({ onEvent, voice: coachVoice });
+  useEffect(() => {
+    const saved = localStorage.getItem("coach-voice");
+    if (saved === "male" || saved === "female") setCoachVoice(saved);
+  }, []);
   const canStart = voice.status === "idle" || voice.status === "closed";
   const inCall = voice.status === "connecting" || voice.status === "connected";
 
@@ -114,7 +131,7 @@ export function VoiceCoach() {
 
   const endCall = useCallback(() => {
     chime("end");
-    voice.stop();
+    voice.stop(true);
   }, [voice]);
 
   function handlePointerDown() {
@@ -191,7 +208,7 @@ export function VoiceCoach() {
     subline = "Wrapping up your session…";
     label = "Ending workout";
   } else if (voice.status === "closed" && voice.hasConnected) {
-    headline = "Great work";
+    headline = workoutSaved ? "Workout logged" : "Great work";
     subline = "Tap anywhere to train again.";
     label = "Start another voice workout";
   }
@@ -201,7 +218,20 @@ export function VoiceCoach() {
       {/* The coach's voice plays here; kept mounted for the whole call. */}
       <audio ref={voice.audioRef} controls className="sr-only" />
 
-      <button
+      {canStart && (
+        <div className="absolute inset-x-0 top-6 z-10 flex justify-center gap-2" role="group" aria-label="Coach voice">
+          {(["female", "male"] as const).map((choice) => (
+            <Button key={choice} variant={coachVoice === choice ? "default" : "secondary"}
+              aria-pressed={coachVoice === choice} onClick={() => {
+                setCoachVoice(choice);
+                localStorage.setItem("coach-voice", choice);
+                speak(`${choice} coach selected.`);
+              }} className="min-h-11 capitalize">{choice} coach</Button>
+          ))}
+        </div>
+      )}
+
+      <Button variant="ghost"
         type="button"
         aria-label={label}
         onClick={handleClick}
@@ -210,13 +240,13 @@ export function VoiceCoach() {
         onPointerLeave={cancelHold}
         onPointerCancel={cancelHold}
         onContextMenu={(event) => event.preventDefault()}
-        className="flex flex-1 flex-col items-center justify-center gap-12 px-6 py-16 outline-none focus-visible:ring-4 focus-visible:ring-ring"
+        className="h-auto w-full flex-1 flex-col items-center justify-center gap-8 whitespace-normal rounded-none px-6 pb-12 pt-24 outline-none hover:bg-transparent hover:text-foreground focus-visible:ring-4 focus-visible:ring-ring sm:gap-12"
       >
         <span className="text-sm font-semibold uppercase tracking-[0.4em] text-muted-foreground">
           Coach
         </span>
 
-        <span className="relative flex h-56 w-56 items-center justify-center sm:h-72 sm:w-72">
+        <span className="relative flex h-40 w-40 shrink-0 items-center justify-center sm:h-56 sm:w-56">
           {orbState === "live" && (
             <>
               <span className="coach-ring absolute inset-0" aria-hidden />
@@ -227,10 +257,10 @@ export function VoiceCoach() {
         </span>
 
         <span className="flex max-w-md flex-col items-center gap-4 text-center" role="status" aria-live="polite">
-          <span className="coach-headline text-6xl uppercase text-foreground sm:text-7xl">{headline}</span>
+          <span className="coach-headline text-5xl uppercase text-foreground sm:text-6xl">{headline}</span>
           <span className="text-lg text-muted-foreground">{subline}</span>
         </span>
-      </button>
+      </Button>
 
       <p className="pb-8 text-center text-xs uppercase tracking-[0.3em] text-muted-foreground">
         Best with headphones

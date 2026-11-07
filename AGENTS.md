@@ -35,3 +35,6 @@ use the editor.
 - Trainer behaviors that must happen without the user speaking (auto-cues after silence, pause/resume/end voice commands) live in the relay; command phrases are matched in `src/lib/coach-commands.ts` so they stay unit-testable.
 - Detailed form answers come from delegated backend requests that look up `src/lib/exercise-cues.ts`; extend coaching knowledge there rather than bloating the live session instructions.
 - The UI is a single full-screen tap target with spoken (speechSynthesis) error feedback, because users are not expected to read the screen.
+- Optional pre-call voice selectors supplement the full-screen start target; spoken voice changes apply to the next session because Live fixes the voice at startup.
+- Workout journals use a cryptographically random device capability, SHA-256 scoped server access, and service-role-only tables to keep no-login phone histories private; never log failed or disconnected calls as completed workouts.
+- Persist explicit completion in the relay under the call's stable ID and verify readback before announcing success; transport cleanup must never imply completion.

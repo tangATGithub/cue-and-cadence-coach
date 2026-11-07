@@ -5,6 +5,8 @@ import { z } from "zod";
 
 import { CUE_IDLE_SECONDS, detectCoachCommand } from "./coach-commands";
 import { EXERCISES, findExercise } from "./exercise-cues";
+import { COACH_VOICES, detectVoiceChoice, isWorkoutCompletion, type CoachVoice } from "./workout-journal";
+import { deviceHash, readWorkouts, saveWorkout } from "./workout-journal.server";
 
 export type LiveConfig = {
   baseURL: string;
@@ -22,7 +24,7 @@ const liveSettings = {
 };
 
 const openingInstructions =
-  "Start now in English. In one short, upbeat sentence greet the user as their hands-free personal trainer, then ask what workout or body area they are focusing on today. Then listen.";
+  "Start now in English. Greet the user briefly as their hands-free trainer. Say they can request a male or female coach for their next workout, and that saying end workout saves their session. Ask what they are training today, then listen.";
 
 export type LiveSocket = {
   readonly readyState: number;
@@ -134,6 +136,9 @@ Safety: if they mention sharp pain, joint pain, dizziness, chest pain, or troubl
 and suggest seeing a professional if it continues. Never diagnose.
 If they say pause or ask you to be quiet, acknowledge in three words or fewer and stay quiet until they talk again.
 If they say end the workout, give one short encouraging goodbye.
+The app saves the workout on explicit completion or end, and reports whether the save succeeded. Never claim a save before the app confirms it.
+The coach voice is fixed for this call. A request for a male or female coach sets the next workout's voice; do not claim to change it mid-call.
+Users can ask to hear their workout history. The app supplies verified saved sessions; never invent workout history, reps, weights, or sets.
 Backchannel policy: Use occasional short encouragement like "good", "nice", "keep it up" without taking over.
 Interruption policy: Stop talking immediately and listen when the user speaks.
 Delegation policy:
@@ -297,6 +302,11 @@ export function bindLiveConnection(
   let coachingActive = false;
   let coachingPaused = false;
   let endingRequested = false;
+  let journalHash: string | undefined;
+  let coachVoice: CoachVoice = "female";
+  let workoutStartedAt: number | undefined;
+  let savingWorkout = false;
+  let userWords = "";
   let lastActivity = Date.now();
   let recentUserText = "";
   let cueTimer: ReturnType<typeof setInterval> | undefined;
@@ -395,10 +405,27 @@ export function bindLiveConnection(
   }
 
   function handleUserWords(delta: string) {
-    coachingActive = true;
     recentUserText = (recentUserText + delta).slice(-160);
+    const voiceChoice = detectVoiceChoice(recentUserText);
+    if (voiceChoice) {
+      recentUserText = "";
+      emit({ type: "app.coach.voice.selected", voice: voiceChoice });
+      sendCoachCommentary(`The user's ${voiceChoice} voice preference has been set for their next workout. Confirm briefly that this call keeps its current voice.`);
+      return;
+    }
+    if (/\b(?:workout history|last workout|previous workouts|recent workouts)\b/i.test(recentUserText)) {
+      recentUserText = "";
+      const hash = journalHash;
+      if (hash) execution.waitUntil(readWorkouts(hash).then((rows) => {
+        const details = rows.slice(0, 3).map((row) => `${row.completed_at.slice(0, 10)}: ${row.exercises.join(", ") || "workout"}, ${Math.round(row.duration_seconds / 60)} minutes`).join("; ");
+        sendCoachCommentary(rows.length ? `Read this verified workout history briefly: ${details}` : "Tell the user there are no completed workouts saved on this phone yet.");
+      }).catch(() => sendCoachCommentary("Tell the user their workout history could not be loaded.")));
+      return;
+    }
+    coachingActive = true;
     const command = detectCoachCommand(recentUserText);
-    if (!command) return;
+    const completed = isWorkoutCompletion(recentUserText);
+    if (!command && !completed) return;
     recentUserText = "";
     if (command === "pause") {
       coachingPaused = true;
@@ -406,12 +433,40 @@ export function bindLiveConnection(
     } else if (command === "resume") {
       coachingPaused = false;
       emit({ type: "app.coach.resumed" });
-    } else if (command === "end" && !endingRequested) {
-      endingRequested = true;
-      emit({ type: "app.coach.ending" });
-      sendCoachCommentary("The user asked to end the session. Say one short encouraging goodbye now. Do not ask a question.");
-      endTimer = setTimeout(stop, 8000);
+    } else if (command === "end" || completed) {
+      completeWorkout();
     }
+  }
+
+  function completeWorkout(closeImmediately = false) {
+    if (endingRequested || closing) return;
+    endingRequested = true;
+    discardPendingWork();
+    emit({ type: "app.coach.ending" });
+    const hash = journalHash;
+    const startedAt = workoutStartedAt;
+    if (!hash || startedAt === undefined || !coachingActive) {
+      if (closeImmediately) stop();
+      else {
+        sendCoachCommentary("There was no workout to log yet. Say a brief goodbye.");
+        endTimer = setTimeout(stop, 5000);
+      }
+      return;
+    }
+    savingWorkout = true;
+    execution.waitUntil(saveWorkout({ id: runID, deviceHash: hash, startedAt,
+      completedAt: Date.now(), voice: coachVoice, userWords }).then((row) => {
+      emit({ type: "app.workout.saved", workout: row });
+      if (!closeImmediately) sendCoachCommentary("The workout was successfully saved. Say your workout is logged and give a short encouraging goodbye. Do not ask a question.");
+    }).catch((error) => {
+      const message = error instanceof Error ? error.message : "Your workout could not be saved.";
+      emit({ type: "app.workout.save_failed", error: { message } });
+      if (!closeImmediately) sendCoachCommentary(`Tell the user: ${message} Give a brief goodbye without claiming the workout is logged.`);
+    }).finally(() => {
+      savingWorkout = false;
+      if (closeImmediately) stop();
+      else endTimer = setTimeout(stop, 8000);
+    }));
   }
 
   function discardPendingWork() {
@@ -581,7 +636,10 @@ export function bindLiveConnection(
         const role = event.type === "session.input_transcript.delta" ? "user" : "assistant";
         if (!event.delta?.trim()) return;
         lastActivity = Date.now();
-        if (role === "user") handleUserWords(event.delta);
+        if (role === "user") {
+          userWords = (userWords + event.delta).slice(-12000);
+          handleUserWords(event.delta);
+        }
         const listeningSound = role === "user" && Boolean(task) && isListeningSound(event.delta);
         transcripts.push({
           role,
@@ -627,9 +685,11 @@ export function bindLiveConnection(
     }
   }
 
-  async function startSession(sdp: string) {
+  async function startSession(sdp: string, capability: unknown, voice: unknown) {
     if (closing || browser.readyState !== 1) return;
     clearTimeout(startTimer);
+    journalHash = await deviceHash(capability);
+    coachVoice = voice === "male" ? "male" : "female";
     startupTimer = setTimeout(() => {
       emit({ type: "app.error", error: { message: "Voice startup timed out" } });
       stop();
@@ -660,7 +720,7 @@ export function bindLiveConnection(
         session: {
           model: config.liveModel,
           instructions: conversationInstructions,
-          audio: { output: { voice: "marin" } },
+          audio: { output: { voice: COACH_VOICES[coachVoice] } },
           delegation: { type: "client" },
         },
         transport: { type: "webrtc", sdp },
@@ -672,7 +732,11 @@ export function bindLiveConnection(
     try {
       if (typeof data !== "string" || data.length > 64 * 1024) throw new Error("Invalid client message");
       const event = JSON.parse(data);
-      if (event.type === "session.close") return stop();
+      if (event.type === "session.close") {
+        if (event.completed === true) completeWorkout(true);
+        else if (!savingWorkout) stop();
+        return;
+      }
       if (closing) return;
       if (!gateway) {
         if (starting || event.type !== "app.start" || typeof event.sdp !== "string" || !event.sdp.trim()) {
@@ -680,7 +744,7 @@ export function bindLiveConnection(
         }
         starting = true;
         execution.waitUntil(
-          startSession(event.sdp).catch((error) => {
+          startSession(event.sdp, event.capability, event.voice).catch((error) => {
             if (!closing)
               emit({
                 type: "app.error",
@@ -693,6 +757,7 @@ export function bindLiveConnection(
       }
       if (event.type === "app.ready") {
         browserReady = true;
+        workoutStartedAt ??= Date.now();
         requestGreeting();
         return;
       }
