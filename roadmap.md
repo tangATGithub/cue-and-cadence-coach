@@ -3,4 +3,6 @@
 - [x] Verify phone layout, workout rules, real Cloud storage and both voice startup settings.
 - [x] Coach asks which exercise you start with and confirms it before cueing.
 - [x] Test phone flow: voice choice, ending a workout, saving its log.
-- [ ] Verify audible conversation on a phone and published website; blocked by sandbox microphone/network setup and unpublished site.
+- [ ] Add completed sets per exercise, daily workout chart, and durable spoken/visible history.
+- [ ] Set up lyworkoutbuddy.com; domain purchase/ownership may require the workspace owner.
+- [ ] Verify audible conversation on a phone and published website; blocked by sandbox audio/network setup.

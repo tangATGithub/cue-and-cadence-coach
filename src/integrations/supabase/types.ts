@@ -20,6 +20,7 @@ export type Database = {
           completed_at: string
           device_hash: string
           duration_seconds: number
+          exercise_sets: Json
           exercises: string[]
           id: string
           reported_details: string
@@ -30,6 +31,7 @@ export type Database = {
           completed_at: string
           device_hash: string
           duration_seconds: number
+          exercise_sets?: Json
           exercises?: string[]
           id: string
           reported_details?: string
@@ -40,6 +42,7 @@ export type Database = {
           completed_at?: string
           device_hash?: string
           duration_seconds?: number
+          exercise_sets?: Json
           exercises?: string[]
           id?: string
           reported_details?: string

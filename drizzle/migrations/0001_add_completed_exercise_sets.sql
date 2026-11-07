@@ -1,0 +1,2 @@
+ALTER TABLE public.workout_logs ADD COLUMN IF NOT EXISTS exercise_sets jsonb NOT NULL DEFAULT '[]'::jsonb;
+COMMENT ON COLUMN public.workout_logs.exercise_sets IS 'Reported completed sets by exercise; null completed_sets means not reported, never inferred from planned sets.';
