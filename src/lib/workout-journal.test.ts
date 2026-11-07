@@ -2,6 +2,19 @@ import { describe, expect, it } from "vitest";
 import { buildWorkoutLog, COACH_VOICES, detectVoiceChoice, isWorkoutCompletion, extractCompletedSets } from "./workout-journal";
 
 describe("workout requirements", () => {
+  it('saves both exercises in a single compound completion report', () => {
+    expect(extractCompletedSets('I completed three sets of squats and two sets of push-ups. End workout.')).toEqual([
+      { exercise: 'squat', completed_sets: 3 }, { exercise: 'push-up', completed_sets: 2 },
+    ]);
+  });
+  it('does not carry completion into a separate sentence or a planned exercise', () => {
+    expect(extractCompletedSets('I completed three sets of squats. Two sets of push-ups.')).toEqual([
+      { exercise: 'squat', completed_sets: 3 }, { exercise: 'push-up', completed_sets: null },
+    ]);
+    expect(extractCompletedSets('I completed three sets of squats and will do two sets of push-ups.')).toEqual([
+      { exercise: 'squat', completed_sets: 3 }, { exercise: 'push-up', completed_sets: null },
+    ]);
+  });
   it('saves completed sets separately for each exercise', () => {
     expect(extractCompletedSets('I completed three sets of squats. I completed two sets of push-ups. End workout.')).toEqual([
       { exercise: 'squat', completed_sets: 3 }, { exercise: 'push-up', completed_sets: 2 },

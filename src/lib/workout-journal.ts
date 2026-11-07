@@ -18,8 +18,11 @@ export function extractCompletedSets(text: string): ExerciseSets[] {
   const exercisePattern = new RegExp(`\\b(${escaped.join('|')})\\b`, 'g');
   // Split before exercise switches as well as sentence boundaries, retaining
   // reports such as "completed three sets of squats and two sets of push-ups".
-  const clauses = normalized.split(/[.!?;\n]+|,\s*|\band\b/);
+  const clauses = normalized.split(/([.!?;\n]+|,\s*|\band\b)/);
+  let completionContinues = false;
   for (const clause of clauses) {
+    if (/^[.!?;\n]+$/.test(clause)) { completionContinues = false; continue; }
+    if (/^(?:,\s*|and)$/.test(clause)) continue;
     const matches = [...clause.matchAll(exercisePattern)];
     if (matches.length) {
       const last = matches[matches.length - 1];
@@ -30,16 +33,20 @@ export function extractCompletedSets(text: string): ExerciseSets[] {
         if (foundExercise && !entries.has(foundExercise)) entries.set(foundExercise, { exercise: foundExercise, completed_sets: null });
       }
     }
-    if (!current || /\b(?:plan|planning|will|going to|want to|should|aim|target|how many|haven't|not completed|not done)\b/.test(clause)) continue;
+    if (!current || /\b(?:plan|planning|will|going to|want to|should|aim|target|how many|haven't|not completed|not done)\b/.test(clause)) { completionContinues = false; continue; }
     const total = clause.match(new RegExp(`\\b(?:completed|finished|did|done)\\s+(?:a total of\\s+)?${number}\\s+sets?\\b`))
-      ?? clause.match(new RegExp(`\\b${number}\\s+sets?\\b[^.!?]*\\b(?:completed|finished|done)\\b`));
+      ?? clause.match(new RegExp(`\\b${number}\\s+sets?\\b[^.!?]*\\b(?:completed|finished|done)\\b`))
+      ?? (completionContinues ? clause.match(new RegExp(`^\\s*${number}\\s+sets?\\b`)) : null);
     const entry = entries.get(current);
     if (!entry) continue;
     const reported = total?.[1];
-    if (reported !== undefined) entry.completed_sets = Number.isNaN(Number(reported)) ? numbers[reported] ?? null : Number(reported);
+    if (reported !== undefined) {
+      entry.completed_sets = Number.isNaN(Number(reported)) ? numbers[reported] ?? null : Number(reported);
+      completionContinues = true;
+    }
     else if (/\b(?:set (?:is )?(?:done|complete|completed|finished)|(?:completed|finished) (?:a|another|the) set)\b/.test(clause)) {
       entry.completed_sets = (entry.completed_sets ?? 0) + 1;
-    }
+    } else completionContinues = false;
   }
   return [...entries.values()];
 }

@@ -66,18 +66,23 @@ describe("workout completion relay", () => {
     expect(saveWorkout).not.toHaveBeenCalled();
   });
   it('saves reported exercise sets on end workout, excluding assistant counts', async () => {
-    const { gateway } = await setup('female');
+    const { browser, gateway } = await setup('female');
     gateway.receive({ type: 'session.output_transcript.delta', delta: 'You completed ten sets of planks.' });
     gateway.receive({ type: 'session.input_transcript.delta', delta: 'I completed three ' });
-    gateway.receive({ type: 'session.input_transcript.delta', delta: 'sets of squats. I completed two sets of push-ups. ' });
+    gateway.receive({ type: 'session.input_transcript.delta', delta: 'sets of squats and two sets of push-ups. ' });
     gateway.receive({ type: 'session.input_transcript.delta', delta: 'End workout.' });
+    gateway.receive({ type: 'session.input_transcript.delta', delta: 'End workout.' });
+    browser.receive({ type: 'session.close', completed: true });
+    browser.receive({ type: 'session.close', completed: true });
     await vi.advanceTimersByTimeAsync(0);
+    expect(saveWorkout).toHaveBeenCalledTimes(1);
     const input = vi.mocked(saveWorkout).mock.calls[0]?.[0];
     expect(input).toBeDefined();
     if (!input) throw new Error('Workout must be saved');
     expect(buildWorkoutLog(input).exercise_sets).toEqual([
       { exercise: 'squat', completed_sets: 3 }, { exercise: 'push-up', completed_sets: 2 },
     ]);
+    expect(browser.sent.filter((event) => event['type'] === 'app.workout.saved')).toHaveLength(1);
   });
   it('announces a failed save without announcing success', async () => {
     vi.mocked(saveWorkout).mockRejectedValueOnce(new Error('Workout could not be saved'));
