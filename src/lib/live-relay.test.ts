@@ -1,6 +1,7 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { bindLiveConnection, type LiveSocket } from "./live-relay.server";
 import { saveWorkout } from "./workout-journal.server";
+import { buildWorkoutLog } from "./workout-journal";
 
 vi.mock("./workout-journal.server", () => ({
   deviceHash: vi.fn(async () => "private-device-hash"),
@@ -63,5 +64,27 @@ describe("workout completion relay", () => {
     browser.disconnect();
     await vi.advanceTimersByTimeAsync(0);
     expect(saveWorkout).not.toHaveBeenCalled();
+  });
+  it('saves reported exercise sets on end workout, excluding assistant counts', async () => {
+    const { gateway } = await setup('female');
+    gateway.receive({ type: 'session.output_transcript.delta', delta: 'You completed ten sets of planks.' });
+    gateway.receive({ type: 'session.input_transcript.delta', delta: 'I completed three ' });
+    gateway.receive({ type: 'session.input_transcript.delta', delta: 'sets of squats. I completed two sets of push-ups. ' });
+    gateway.receive({ type: 'session.input_transcript.delta', delta: 'End workout.' });
+    await vi.advanceTimersByTimeAsync(0);
+    const input = vi.mocked(saveWorkout).mock.calls[0]?.[0];
+    expect(input).toBeDefined();
+    if (!input) throw new Error('Workout must be saved');
+    expect(buildWorkoutLog(input).exercise_sets).toEqual([
+      { exercise: 'squat', completed_sets: 3 }, { exercise: 'push-up', completed_sets: 2 },
+    ]);
+  });
+  it('announces a failed save without announcing success', async () => {
+    vi.mocked(saveWorkout).mockRejectedValueOnce(new Error('Workout could not be saved'));
+    const { browser, gateway } = await setup('male');
+    gateway.receive({ type: 'session.input_transcript.delta', delta: 'I completed three sets of squats. End workout.' });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(browser.sent.some((event) => event.type === 'app.workout.save_failed')).toBe(true);
+    expect(browser.sent.some((event) => event.type === 'app.workout.saved')).toBe(false);
   });
 });
