@@ -6,5 +6,6 @@
 - [x] Add completed sets per exercise, daily workout chart, and durable spoken/visible history.
 - [x] Verify exact-once exercise/set saves against real storage and chart readback after reload; fix compound completion reports.
 - [ ] Add set/next-exercise questions, individual completed workouts by day, and far-right dumbbell history icon.
+- [ ] Remove Read aloud from the logged workouts page while keeping in-call spoken history.
 - [ ] Set up lyworkoutbuddy.com; unregistered, purchase unavailable to requester, requires workspace admin purchase.
 - [ ] Verify audible conversation on a phone and published website; blocked by sandbox audio/network setup.

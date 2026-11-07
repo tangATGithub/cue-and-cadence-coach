@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useServerFn } from '@tanstack/react-start';
-import { RefreshCw, Volume2 } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getDeviceCapability } from '@/lib/device-capability';
 import { getWorkouts } from '@/lib/workouts.functions';
-import { dailyWorkouts, spokenWorkoutHistory, readExerciseSets } from '@/lib/workout-history';
+import { dailyWorkouts, readExerciseSets } from '@/lib/workout-history';
 
 export function WorkoutHistory() {
   const [capability, setCapability] = useState<string>();
@@ -19,17 +19,11 @@ export function WorkoutHistory() {
   const rows = history.data ?? [];
   const days = dailyWorkouts(rows);
   const maxSets = Math.max(1, ...days.flatMap((day) => day.exercises.map((entry) => entry.completed_sets ?? 0)));
-  function readAloud() {
-    const text = spokenWorkoutHistory(rows) || 'There are no completed workouts saved on this phone yet.';
-    window.speechSynthesis?.cancel();
-    window.speechSynthesis?.speak(new SpeechSynthesisUtterance(text));
-  }
   return <section className="mx-auto w-full max-w-4xl px-6 py-10 sm:px-10">
     <div className="mb-8 flex flex-wrap items-end justify-between gap-4 border-b border-border pb-6">
       <div><p className="mb-2 text-sm font-semibold uppercase text-primary">Your training record</p>
         <h1 className="font-display text-5xl text-foreground">Logged workouts</h1></div>
       <div className="flex gap-2">
-        <Button variant="outline" onClick={readAloud} disabled={history.isPending || history.isError || storageError}><Volume2 />Read aloud</Button>
         <Button variant="ghost" size="icon" aria-label="Refresh workout history" title="Refresh workout history" disabled={history.isFetching} onClick={() => void history.refetch()}><RefreshCw /></Button>
       </div>
     </div>
